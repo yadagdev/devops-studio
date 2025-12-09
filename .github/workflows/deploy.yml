@@ -1,0 +1,17 @@
+name: Deploy to Chronos
+on:
+  workflow_dispatch: # とりあえず手動トリガーにしておく
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: SSH to Chronos and test connection
+        env:
+          CHRONOS_SSH_KEY: ${{ secrets.CHRONOS_SSH_KEY }}
+          CHRONOS_SSH_HOST: ${{ secrets.CHRONOS_SSH_HOST }}
+        run: |
+          echo "$CHRONOS_SSH_KEY" > key.pem
+          chmod 600 key.pem
+          ssh -o StrictHostKeyChecking=no -i key.pem ysuzu@$CHRONOS_SSH_HOST "echo 'Connected to Chronos from GitHub Actions'"
