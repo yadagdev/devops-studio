@@ -1,0 +1,23 @@
+name: Deploy hello-web to Chronos
+on:
+  workflow_dispatch: # 手動デプロイ用
+  push:
+    branches:
+      - main # main にpushされたら自動デプロイ
+jobs:
+  deploy:
+    runs-on: [self-hosted, chronos]
+    steps:
+      - name: Checkout devops-studio
+        uses: actions/checkout@v4
+      - name: Show runner info
+        run: |
+          echo "Runner hostname:"
+          hostname
+          echo "Current directory:"
+          pwd
+      - name: Deploy hello-web via docker compose
+        run: |
+          cd /home/chronos/apps/hello-web
+          docker compose pull || true
+          docker compose up -d
