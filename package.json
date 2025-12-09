@@ -17,5 +17,8 @@
   "bugs": {
     "url": "https://github.com/yadagdev/devops-studio/issues"
   },
-  "homepage": "https://github.com/yadagdev/devops-studio#readme"
+  "homepage": "https://github.com/yadagdev/devops-studio#readme",
+  "devDependencies": {
+    "vitest": "^4.0.15"
+  }
 }
