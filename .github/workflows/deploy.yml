@@ -19,4 +19,4 @@ jobs:
       - name: Deploy hello-web via docker compose
         run: |
           cd /home/chronos/workspace/apps/hello-web
-          docker compose up -d
+          echo "docker compose up -dする"
