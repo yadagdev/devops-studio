@@ -6,7 +6,7 @@ on:
       - main # main にpushされたら自動デプロイ
 jobs:
   deploy:
-    runs-on: [self-hosted, chronos]
+    runs-on: self-hosted
     steps:
       - name: Checkout devops-studio
         uses: actions/checkout@v4
