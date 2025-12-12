@@ -1,0 +1,28 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ${DB_CONTAINER_NAME:-example-db}
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${DB_NAME:-app}
+      POSTGRES_USER: ${DB_USER:-app}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change_me}
+
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+    ports:
+      # 開発時だけホスト公開したい場合に利用（本番ではコメントアウト推奨）
+      # - "${DB_PORT:-5432}:5432"
+      - "5432"
+
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  db-data:

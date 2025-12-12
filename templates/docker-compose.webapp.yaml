@@ -1,0 +1,29 @@
+services:
+  app:
+    # アプリケーションコンテナのベースイメージ
+    # 例: ghcr.io/your-org/your-app:latest
+    image: ${APP_IMAGE:-example/webapp:latest}
+    container_name: ${APP_NAME:-example-webapp}
+    restart: unless-stopped
+
+    # アプリケーションのソースを直接マウントする場合はコメントアウト解除
+    # volumes:
+    #   - ./:/usr/src/app
+
+    env_file:
+      - .env
+
+    # コンテナ内ポートは 3000 を想定（Next.js / Node.jsなど）
+    ports:
+      - "${APP_PORT:-3000}:3000"
+
+    # DB や キャッシュ など他サービスに依存する場合は names を追記
+    # depends_on:
+    #   - db
+
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

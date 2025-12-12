@@ -1,0 +1,26 @@
+services:
+  proxy:
+    image: nginx:stable-alpine
+    container_name: ${PROXY_CONTAINER_NAME:-example-proxy}
+    restart: unless-stopped
+
+    ports:
+      - "${PROXY_HTTP_PORT:-80}:80"
+      # 後で HTTPS 対応するなら 443 も開ける
+      # - "${PROXY_HTTPS_PORT:-443}:443"
+
+    volumes:
+      # Nginx 設定ファイルのマウント例
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      # 静的ファイルをホストから配信したい場合
+      # - ./public:/usr/share/nginx/html:ro
+
+    depends_on:
+      - app
+
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

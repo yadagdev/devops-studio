@@ -1,0 +1,40 @@
+name: Deploy - Docker on Chronos
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    # 各アプリごとに /home/chronos/apps/<app-name> に合わせて修正する
+    defaults:
+      run:
+        working-directory: /home/chronos/apps/YOUR_APP_NAME
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Copy application files into deploy directory
+        run: |
+          # ここでは "このリポジトリ自身が /home/chronos/apps/YOUR_APP_NAME にチェックアウトされている" 前提
+          # もし別構成にするなら適宜調整する
+          ls -la
+
+      - name: Pull latest images (optional)
+        run: |
+          if [ -f docker-compose.yml ]; then
+            docker compose pull || true
+          fi
+
+      - name: Build & Start services
+        run: |
+          if [ -f docker-compose.yml ]; then
+            docker compose up -d --build
+          else
+            echo "docker-compose.yml not found, skip"
+          fi
