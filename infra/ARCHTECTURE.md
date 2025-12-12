@@ -8,6 +8,10 @@ DevOps-Studio は、個人開発および小規模チーム向けの
 このドキュメントは、新しくこの環境を触る自分（未来の自分を含む）やコラボレーターが、
 **どのマシンで何をしていて、どこを変更すれば何が起きるか** を素早く理解できることを目的とする。
 
+- コード管理・CI/CD・デプロイを一元化し、プロジェクトごとにバラバラな運用を避ける
+- self-hosted runner (Chronos) を活用して、ローカル LAN 内だけで完結する開発フローを実現する
+- 将来的に複数の Web アプリ / API を同じ基盤上で運用できる状態を作る
+
 ---
 
 ## 2. System Overview
@@ -16,15 +20,15 @@ DevOps-Studio は、個人開発および小規模チーム向けの
 
 - **Chronos (AlmaLinux 10.1)**
   - 役割: 本番サーバー / 統合開発サーバー
-  - 機能: Webアプリの本番運用, nginxリバースプロキシ, docker/docker-compose
+  - 機能: Webアプリの本番運用, Nginx + リバースプロキシ + Let's Encrypt 統合ポイント, docker/docker-composeによるアプリ本番ホスト, GitHub self-hosted runner (actions-runner)
 
 - **Astraeus (Mac mini M4 Pro)**
   - 役割: メイン開発マシン
-  - 機能: コーディング, ローカルLLMによる設計支援, 初期検証
+  - 機能: コーディング, ローカルLLMによる実装+設計支援, 初期検証
 
 - **Selene (Mac mini M4 Pro)**
   - 役割: テスト・レビュー専用
-  - 機能: E2Eテスト(Playwright), 静的解析, LLMによるコードレビュー
+  - 機能: E2Eテスト(Playwright), 静的解析, ローカルLLMによるコードレビュー
 
 - **Windows (i9 + RTX 4070 SUPER)**
   - 役割: SRE / 重ビルド / GPUテスト
@@ -34,9 +38,45 @@ DevOps-Studio は、個人開発および小規模チーム向けの
 
 ---
 
-## 3. Repositories
+## 3. Component
 
-### 3.1 devops-studio (このリポジトリ)
+- **GitHub**
+  - すべてのアプリケーションリポジトリのコード管理
+  - DevOps-Studio 自体のリポジトリ (`devops-studio`)
+- **DevOps-Studio**
+  - 共通ドキュメント (ARCHITECTURE, PROJECT_CHARTER, Coding Guidelines)
+  - CI / CD テンプレート (`templates/ci/*.yml`)
+  - Docker Compose テンプレート (`templates/docker-compose.*.yml`)
+- **アプリケーションリポジトリ**
+  - 例: `todo-auth-app`, `some-api`, etc.
+  - 各リポで devops-studio のテンプレートをコピー/カスタマイズして利用
+
+---
+
+## 4. Self-hosted Runner (Chronos)
+
+Chronos 上に GitHub Actions の self-hosted runner を配置し、  `runs-on: self-hosted` のジョブをすべて Chronos で処理する。
+
+- runner 配置ディレクトリ例: `/home/chronos/actions-runner`
+- サービス化:
+  - `./config.sh ...`
+  - `sudo ./svc.sh install`
+  - `sudo ./svc.sh start`
+- ラベル運用:
+  - 現時点ではデフォルトの `self-hosted, Linux, X64` のみ
+  - 将来的に `chronos`, `gpu`, `build` などを追加する余地を残す
+
+self-hosted runner により、以下が可能になる:
+
+- GitHub 上のワークフローを **LAN 内のサーバーだけ**で実行
+- Docker Compose を直接 Chronos 上で叩いてデプロイ
+- 公開用サーバーと CI 実行環境を同一マシンに集約（個人開発にとって運用コスト最小）
+
+---
+
+## 5. Repositories
+
+### 5.1 devops-studio (このリポジトリ)
 
 - 種別: インフラ / メタリポジトリ
 - 主なディレクトリ:
@@ -44,16 +84,46 @@ DevOps-Studio は、個人開発および小規模チーム向けの
   - `.github/workflows/` : CI/CD 定義
   - `docker/` : 本番用 docker-compose, nginx 設定 など
 
-### 3.2 アプリケーション系リポジトリ（例）
+### 5.2 アプリケーション系リポジトリ（例）
 
 - `todo-app` / `llm-helper-app` など
 - 各アプリは独立リポジトリとし、共通の GitHub Actions テンプレを利用する。
 
 ---
 
-## 4. Runtime Topology
 
-### 4.1 通常の開発フロー
+## 6. Standard Deployment Procedure
+
+### 6.1 アプリ側の前提
+
+各アプリケーションリポジトリは以下を前提とする:
+
+- `main` ブランチ = 本番相当
+- リポジトリ直下に `docker-compose.yml` を用意
+  - 必要に応じて devops-studio の
+    - `templates/docker-compose.webapp.yml`
+    - `templates/docker-compose.db.yml`
+    - `templates/docker-compose.proxy.yml`
+    をベースに構成する
+- Chronos 上のデプロイ先:
+  - `/home/chronos/apps/<app-name>`
+
+### 6.2 デプロイフロー (GitHub Actions 経由)
+
+1. 開発者がローカルで `develop` ブランチに実装・テスト
+2. GitHub に push → `ci-node.yml` / `ci-python.yml` による CI 実行
+3. `develop` → `main` への Pull Request を作成
+4. CI が Green になり、レビューを通過したら `main` にマージ
+5. `main` への push をトリガーに `deploy-docker.yml` が起動
+   - `runs-on: self-hosted`
+   - working-directory: `/home/chronos/apps/<app-name>`
+   - `docker compose up -d --build` を実行
+
+---
+
+## 7. Runtime Topology
+
+### 7.1 通常の開発フロー
 
 1. **Astraeus**
    - feature ブランチを作成し、実装・ローカル動作確認
@@ -71,14 +141,17 @@ DevOps-Studio は、個人開発および小規模チーム向けの
    - 問題なければ main ブランチへのマージ、あるいは release タグ作成
 
 5. **Chronos**
-   - release タグをトリガーとして GitHub Actions (CD) が発火
-   - Chronos へ SSH 経由で接続し、docker-compose による本番更新を実行
+   - Chronos でdocker-compose による本番更新を実行
+   - Chronosは Actions runner と本番コンテナ稼働の場
+   - デプロイの発火条件は 8.3 を参照
+   - self-hosted runner 上で実行されるため、本番デプロイに SSH 接続は不要
+   ― .env をデプロイ先ディレクトリに持つ(.env.localはアプリ側リポジトリで所有)
 
 ---
 
-## 5. CI/CD Pipeline
+## 8. CI/CD Pipeline
 
-### 5.1 ブランチ戦略
+### 8.1 ブランチ戦略
 
 基本は Git-Flow をベースにした以下の構成とする：
 
@@ -89,6 +162,7 @@ DevOps-Studio は、個人開発および小規模チーム向けの
 - `develop`  
   - 開発統合ブランチ。日常開発の最新状態。
   - `feature/*` や `fix/*` をここにマージしていく。
+  - 新機能・修正は基本的にここから派生。
 
 - `feature/*`  
   - 新機能開発用ブランチ。命名例：
@@ -99,43 +173,54 @@ DevOps-Studio は、個人開発および小規模チーム向けの
 - `fix/*`  
   - 開発中に見つかったバグ修正用ブランチ。
   - 命名例：`fix/login-validation` など。
-  - `develop` から派生し、完了したら `develop` にマージ。
+  - 原則として修正対応完了後 `develop` にマージ
+  - `develop` から派生させる。
 
 - `release/*`  
   - 本番リリース準備用ブランチ。
   - 例：`release/1.2.0`
   - リリース単位で `develop` から切り、軽微な修正のみここで行う。
   - リリース時に `main` にマージし、そのコミットにタグ（`v1.2.0` など）を付ける。
-  - 必要に応じて `develop` にもマージバックする。
+  -  `develop` にもマージバックする。
 
 - `hotfix/*`  
   - 本番環境（`main`）で見つかった致命的バグ修正用ブランチ。
   - `main` から直接派生し、修正後は `main` と `develop` （必要なら `release/*`）の両方にマージする。
   - 命名例：`hotfix/production-500-error`
 
-### 5.2 CI (Continuous Integration)
+- `main` は常に「デプロイ可能」な状態を維持
+- `develop` で日々の開発を回しつつ、リリースタイミングでは `release/*` で安定化できる
+- ブランチ名は CI のトリガー条件（`ci-node.yml` / `ci-python.yml`）と一致する
+
+### 8.2 CI (Continuous Integration)
 
 - 実行場所: GitHub Actions（ホストランナー or 自前ランナー）
 - 主なジョブ:
   - Node v25.2.1 での lint / unit test
   - Playwright による最低限の E2E（必要に応じて）
 
-### 5.3 CD (Continuous Delivery/Deployment)
+### 8.3 CD (Continuous Delivery/Deployment)
 
 - トリガー:
-  - `main` へのマージ
-  - あるいは `vX.Y.Z` タグの push
+  - **Phase1** : main push をデプロイトリガーとする（タグは記録用途）
+  - **Phase2**: タグ push をデプロイトリガーに移行する（main pushではデプロイしない）
 - 流れ:
+  **方式A（推奨/現状）**
+  1. GitHub Actions（self-hosted runner）が Chronos 上でリポジトリを checkout
+  2. Chronos 上で docker compose up -d --build を実行
+  3. nginx 経由で公開
+  
+  **方式B（将来/レジストリ導入後）**
   1. GitHub Actions でアプリの Docker イメージをビルド
-  2. コンテナレジストリ（将来的に導入予定）へ push もしくは Chronos へ直接 SCP
+  2. コンテナレジストリ（将来的に導入予定）へ push
   3. Chronos 上で `docker-compose pull && docker-compose up -d` を実行
   4. nginx 経由で公開
 
 ---
 
-## 6. Local LLM Integration
+## 9. Local LLM Integration
 
-### 6.1 ランタイム
+### 9.1 ランタイム
 
 - ランタイム: **Ollama**
 - 利用ノード:
@@ -143,7 +228,7 @@ DevOps-Studio は、個人開発および小規模チーム向けの
   - Selene: レビュー支援（コードレビュー, テストケース提案）
   - Windows: 将来的な gpt-oss 系モデルの実験
 
-### 6.2 モデル方針
+### 9.2 モデル方針
 
 - 日常用（高速）:
   - **Llama-3-ELYZA-JP-8B**（日本語特化8Bクラス）
@@ -151,7 +236,7 @@ DevOps-Studio は、個人開発および小規模チーム向けの
   - **gpt-oss-20b** をターゲットとした設計（利用環境が整い次第）
   - 必要に応じて gpt-oss-120b を Windows で実験的に利用
 
-### 6.3 典型的な利用パターン
+### 9.3 典型的な利用パターン
 
 - `llm-dev-jp-fast`:
   - 仕様整理、タスク分解、型設計レビュー、Playwright テストケース生成
@@ -160,7 +245,7 @@ DevOps-Studio は、個人開発および小規模チーム向けの
 
 ---
 
-## 7. Technology Stack
+## 10. Technology Stack
 
 - **言語**
   - Node.js: v25.2.1
@@ -178,19 +263,21 @@ DevOps-Studio は、個人開発および小規模チーム向けの
 
 ---
 
-## 8. Security & Secrets
+## 11. Security & Secrets
 
 - GitHub Secrets で管理：
   - `CHRONOS_SSH_KEY`
   - `CHRONOS_SSH_HOST`
   - アプリごとの API キー類
+  - **方式A（推奨/現状）**: self-hosted runner が Chronos 上で実行し、Chronos ローカルで docker compose を叩く（SSH不要）
+  - **方式B（代替）**: GitHub-hosted runner 等から Chronos へ SSH 接続してデプロイする（SSH鍵が必要）
 
 - Chronos 側では `.env` にアプリ設定を集約し、
   `.env` 自体は Git 管理しない。
 
 ---
 
-## 9. Future Work
+## 12. Future Work
 
 - コンテナレジストリ（ローカル or クラウド）の導入
 - モニタリング（Prometheus + Grafana など）
