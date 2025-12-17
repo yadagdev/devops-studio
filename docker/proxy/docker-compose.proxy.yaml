@@ -15,4 +15,3 @@ services:
 networks:
   devops-edge:
     external: true
-    name: devops-edge
