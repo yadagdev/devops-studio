@@ -135,3 +135,63 @@ location /<app-name>/ {
   proxy_pass http://<app-name>:<port>/;
 }
 ```
+
+## Monitoring（最小）
+
+devops-monitor が 60秒おきに proxy 経由のエンドポイントを外形監視し、障害/復旧を Discord に通知します。
+
+### セットアップ（Chronos）
+1. `docker/monitor/monitor.env` を作成（※Git管理しない）
+   - `monitor.env.sample` をコピーして Webhook URL を設定する
+2. 起動：
+```
+cd docker/monitor
+docker compose -f docker-compose.monitor.yaml up -d --build
+```
+
+3. ログ確認
+```
+cd docker/monitor
+docker compose -f docker-compose.monitor.yaml logs -f --tail=100 devops-monitor
+```
+
+4. 障害テスト（通知確認）
+ - proxy を止める：
+```
+cd devops-studio/docker/proxy
+docker compose -f docker-compose.proxy.yaml stop devops-proxy
+```
+ - proxy を戻す：
+```
+cd devops-studio/docker/proxy
+docker compose -f docker-compose.proxy.yaml up -d devops-proxy
+```
+
+5. 監視対象の追加
+`docker/monitor/app/healthcheck.sh` の `CHECK_PATHS` にパスを追加する。
+ - 例: `"/new-app/healthz"
+```devops-studio/docker/monitor/app/healthcheck.sh
+CHECK_PATHS=(
+  "/healthz"
+  "/delay-api/healthz"
+  "new-app/healthz"
+)
+```
+
+
+---
+
+6.  もし通知が来ないときに見るポイント（最短チェック）
+通知が来ない原因はほぼこの3つ：
+
+1) `monitor.env` が読み込めてない（Webhook URL 空）
+2) monitor が `devops-edge` に参加してない（proxy を名前解決できない）
+3) `BASE` が間違い（`http://devops-proxy` じゃなくなってる等）
+
+  確認コマンド：
+```
+cd docker/monitor
+docker compose -f docker-compose.monitor.yaml exec -T devops-monitor sh -lc 'echo "$DISCORD_WEBHOOK_URL" | wc -c'
+docker compose -f docker-compose.monitor.yaml exec -T devops-monitor sh -lc 'getent hosts devops-proxy || true'
+docker compose -f docker-compose.monitor.yaml exec -T devops-monitor sh -lc 'curl -i http://devops-proxy/healthz || true'
+```
