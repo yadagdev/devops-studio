@@ -4,8 +4,8 @@ set -euo pipefail
 BASE="${BASE:-http://devops-proxy}"
 
 CHECK_PATHS=(
-  "/healthz"
-  "/delay-api/healthz"
+  "/_internal/healthz"
+  "/_internal/upstream/delay-api"
 )
 
 WEBHOOK_URL="${DISCORD_WEBHOOK_URL:-}"
