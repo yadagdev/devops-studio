@@ -52,7 +52,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base="http://localhost:8081"
+          base="http://localhost:80"
           CHECK_PATHS=(
             "/healthz"
             "/delay-api/healthz"
