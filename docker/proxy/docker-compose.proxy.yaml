@@ -10,6 +10,7 @@ services:
       - ./nginx/html:/usr/share/nginx/html:ro
       - ./nginx/snippets:/etc/nginx/snippets:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /home/chronos/workspace/_acme:/var/www/letsencrypt:ro
     networks:
       - devops-edge
     restart: unless-stopped
