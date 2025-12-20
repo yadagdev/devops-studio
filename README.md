@@ -195,3 +195,6 @@ docker compose -f docker-compose.monitor.yaml exec -T devops-monitor sh -lc 'ech
 docker compose -f docker-compose.monitor.yaml exec -T devops-monitor sh -lc 'getent hosts devops-proxy || true'
 docker compose -f docker-compose.monitor.yaml exec -T devops-monitor sh -lc 'curl -i http://devops-proxy/healthz || true'
 ```
+
+7. 監視間隔
+- 監視間隔は `docker/monitor/monitor.env` の `INTERVAL`（秒）で調整
