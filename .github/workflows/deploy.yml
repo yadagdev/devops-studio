@@ -1,4 +1,4 @@
-name: Deploy hello-web to Chronos
+name: Deploy to Chronos
 on:
   workflow_dispatch: # 手動デプロイ用
   push:
