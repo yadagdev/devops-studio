@@ -49,7 +49,7 @@ jobs:
           echo "Checking ${base}/delay-api/healthz ..."
           echo "Retry: Countermeasures for vibration immediately after startup..."
           for i in {1..30}; do
-            if curl -fsS "${base}/healthz" >/dev/null && curl -fsS "${base}/delay-api/healthz" >/dev/null; then
+            if curl -fsS "${base}/healthz" >/dev/null && curl -fsS "${base}/delay-apix/healthz" >/dev/null; then
               echo "Healthcheck OK"
               exit 0
             fi
