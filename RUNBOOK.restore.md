@@ -1,5 +1,10 @@
 # devops-proxy（nginx + certbot運用資産）の復旧手順。
 
+## ゴール
+- 本番の80/443を触る前に、ローカル検証（127.0.0.1:8081/8443）で疎通確認
+- 問題なければ本番起動へ移行
+
+
 ## 1) リポジトリ配置
 ```
 mkdir -p /home/chronos/workspace/AIUtilizationProject
@@ -37,19 +42,46 @@ sudo chmod -R go-rwx /etc/letsencrypt
 sudo chown root:root /etc/nginx/devops-studio.htpasswd 2>/dev/null || true
 sudo chmod 0640 /etc/nginx/devops-studio.htpasswd 2>/dev/null || true
 ```
-#### SELinuxで読めない症状が出た時だけ：
+SELinuxで読めない症状が出た時だけ：
 ```
 sudo restorecon -Rv /etc/letsencrypt /etc/nginx 2>/dev/null || true
 ```
 
-## 6) 本番起動
+## 6) 検証起動（本番と共存：127.0.0.1:8081/8443）
+本番の80/443に影響を出さずに、同じ定義で起動して確認する。
+```
+cd /home/chronos/workspace/AIUtilizationProject/devops-studio/docker/proxy
+
+docker compose \
+  -f docker-compose.proxy.yaml \
+  -f docker-compose.proxy.rehearsal.override.yaml \
+  up -d
+
+docker compose \
+  -f docker-compose.proxy.yaml \
+  -f docker-compose.proxy.rehearsal.override.yaml \
+  exec -T devops-proxy nginx -t
+
+# HTTP確認（Hostヘッダ必須）
+curl -fsS http://127.0.0.1:8081/healthz -H 'Host: yadag-studio.duckdns.org'
+curl -fsS http://127.0.0.1:8081/_internal/healthz -H 'Host: yadag-studio.duckdns.org'
+curl -fsS http://127.0.0.1:8081/_internal/upstream/delay-api -H 'Host: yadag-studio.duckdns.org'
+
+# 検証を終えたら停止
+docker compose \
+  -f docker-compose.proxy.yaml \
+  -f docker-compose.proxy.rehearsal.override.yaml \
+  down
+```
+
+## 7) 本番起動
 ```
 cd /home/chronos/workspace/AIUtilizationProject/devops-studio/docker/proxy
 docker compose -f docker-compose.proxy.yaml up -d
 docker compose -f docker-compose.proxy.yaml exec -T devops-proxy nginx -t
 ```
 
-## 7) 事後確認（サーバー完結）
+## 8) 事後確認（サーバー完結）
 ```
 curl -fsS https://127.0.0.1/healthz -H 'Host: yadag-studio.duckdns.org' -I
 curl -fsS https://127.0.0.1/_internal/healthz -H 'Host: yadag-studio.duckdns.org' -I
