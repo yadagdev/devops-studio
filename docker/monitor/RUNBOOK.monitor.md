@@ -1,4 +1,4 @@
-devops-studio 内部監視（devops-monitor）の運用手順。
+# devops-studio 内部監視（devops-monitor）の運用手順。
 
 ## 方針
 - 通知は基本「異常」と「復旧」のみ
@@ -25,18 +25,18 @@ find state -maxdepth 1 -type f -print -exec sed -n '1,120p' {} \;
 ```
 
 ## 無通知検証 (DRY_RUN)
-`monitor.sh`は無限ループなので`timeout`を使う。
+#### `monitor.sh`は無限ループなので`timeout`を使う。
 ```
 docker compose -f docker-compose.monitor.yaml exec -T devops-monitor env NOTIFY_DRY_RUN=1 timeout 20s /app/monitor.sh || true
 ```
 
-個別チェック：
+#### 個別チェック：
 ```
 docker compose -f docker-compose.monitor.yaml exec -T devops-monitor env NOTIFY_DRY_RUN=1 /app/checks/check_backup.sh
 ```
 
 ## 疑似障害 (無通知推奨)
-### HTTPを落とす（安全）
+#### HTTPを落とす（安全）
 ```
 docker compose -f docker-compose.monitor.yaml exec -T devops-monitor \
   env NOTIFY_DRY_RUN=1 BASE=http://devops-proxy-nope timeout 20s /app/monitor.sh || true
@@ -64,4 +64,24 @@ curl -fsS https://127.0.0.1/_internal/upstream/delay-api -H 'Host: yadag-studio.
 
 sudo firewall-cmd --zone=public --list-all
 sudo fail2ban-client status sshd
+```
+
+## 監視が“生きている”ことの無通知確認（stateの更新を見る）
+#### stateの最終更新時刻を見る（新しいほど最近動いてる）
+```
+cd /home/chronos/workspace/AIUtilizationProject/devops-studio/docker/monitor
+ls -lt state/*.state state/backup_daily.last 2>/dev/null | head -n 20
+```
+
+#### stateの中身（ok/fail）を一覧で見る
+```
+for f in state/*.state; do
+  printf "%-20s %s\n" "$(basename "$f")" "$(cat "$f")"
+done
+```
+
+#### 監視コンテナが動いているか（死活）
+```
+docker compose -f docker-compose.monitor.yaml ps
+docker compose -f docker-compose.monitor.yaml logs -n 50 --no-log-prefix devops-monitor
 ```
