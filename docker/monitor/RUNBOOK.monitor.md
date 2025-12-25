@@ -32,6 +32,36 @@ docker compose -f docker-compose.monitor.yaml exec -T devops-monitor env NOTIFY_
 
 個別チェック：
 ```
+docker compose -f docker-compose.monitor.yaml exec -T devops-monitor env NOTIFY_DRY_RUN=1 /app/checks/check_backup.sh
+```
+
+## 疑似障害 (無通知推奨)
+### HTTPを落とす（安全）
+```
 docker compose -f docker-compose.monitor.yaml exec -T devops-monitor \
-  env NOTIFY_DRY_RUN=1 /app/checks/check_backup.sh
+  env NOTIFY_DRY_RUN=1 BASE=http://devops-proxy-nope timeout 20s /app/monitor.sh || true
+```
+
+#### upstream(delay-api) を落として復旧も確認（コンテナ名は環境で置換）
+```
+docker stop delay-api
+docker start delay-api
+```
+
+## 日次サマリ
+- `BACKUP_DAILY_SUMMARY=1`で有効
+- daily は state を触らない（状態遷移に影響しない）
+```
+docker compose -f docker-compose.monitor.yaml exec -T devops-monitor \
+  env NOTIFY_DRY_RUN=1 BACKUP_DAILY_SUMMARY=1 /app/checks/check_backup.sh
+```
+
+## サーバー完結の外部スキャン代替
+```
+curl -fsS https://127.0.0.1/healthz -H 'Host: yadag-studio.duckdns.org' -I
+curl -fsS https://127.0.0.1/_internal/healthz -H 'Host: yadag-studio.duckdns.org' -I
+curl -fsS https://127.0.0.1/_internal/upstream/delay-api -H 'Host: yadag-studio.duckdns.org' -I
+
+sudo firewall-cmd --zone=public --list-all
+sudo fail2ban-client status sshd
 ```
