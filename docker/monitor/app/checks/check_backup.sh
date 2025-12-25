@@ -1,29 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ---- config ----
-TAG="[backup]"
-STATE_KEY="backup"  # /state/backup.state
-DAILY_KEY="backup_daily" # /state/backup_daily.last
-
 BACKUP_DIR="${BACKUP_DIR:-/host/backups/devops-studio}"
-MIN_AGE_SEC="${BACKUP_MIN_AGE_SEC:-180}"
-STALE_SEC="${BACKUP_STALE_SEC:-172800}"
-DAILY_SUMMARY="${BACKUP_DAILY_SUMMARY:-1}"
+MIN_AGE_SEC="${BACKUP_MIN_AGE_SEC:-180}"          # 新しすぎるバックアップは検証しない
+STALE_SEC="${BACKUP_STALE_SEC:-172800}"           # 2日以上新しいバックアップが無いならfail
+DAILY_SUMMARY="${BACKUP_DAILY_SUMMARY:-1}"        # 1で日次サマリ有効
 
 STATE_DIR="${STATE_DIR:-/state}"
 mkdir -p "$STATE_DIR"
+DAILY_FILE="${STATE_DIR}/backup_daily.last"       # UTC日付を保存（YYYY-MM-DD）
 
-STATE_FILE="${STATE_DIR}/${STATE_KEY}.state"        # ok / fail
-DAILY_FILE="${STATE_DIR}/${DAILY_KEY}.last"         # YYYY-MM-DD (UTC)
+now="$(date +%s)"
 
-now_epoch() { date +%s; }
-file_mtime_epoch() {
-  # alpine(coreutils) のstat想定
-  stat -c %Y "$1"
-}
-
-# shellcheck disable=SC2001
 human_age() {
   local sec="$1"
   if [ "$sec" -lt 60 ]; then echo "${sec}s"; return; fi
@@ -32,93 +20,61 @@ human_age() {
   echo "$((sec/86400))d"
 }
 
-prev_state() {
-  [ -f "$STATE_FILE" ] && cat "$STATE_FILE" || echo "unknown"
-}
-set_state() {
-  echo "$1" > "$STATE_FILE"
-}
+mtime_epoch() { stat -c %Y "$1"; }
 
-# monitor.sh 側で notify 関数が提供されている想定。
-# 無ければ stdout に出す（ただし通常は monitor.sh が拾って通知する運用）
-emit_fail() {
-  local msg="$1"
-  echo "${TAG} 🚨 ${msg}"
-}
-emit_ok_daily() {
-  local msg="$1"
-  echo "${TAG} ✅ ${msg}"
-}
-
-# ---- main ----
-# 1) 最新バックアップが古すぎる（作られていない）チェック
+# 最新バックアップが存在するか
 newest_any="$(ls -1t "${BACKUP_DIR}"/devops-proxy-*.tar.gz 2>/dev/null | head -n 1 || true)"
 if [ -z "$newest_any" ]; then
-  set_state "fail"
-  emit_fail "backup FAILED: no_backup_found dir=${BACKUP_DIR}"
-  exit 1
+  echo "fail|backup|no_backup_found dir=${BACKUP_DIR}"
+  exit 0
 fi
 
-now="$(now_epoch)"
-newest_any_mtime="$(file_mtime_epoch "$newest_any")"
-newest_any_age="$((now - newest_any_mtime))"
+# 最新が古すぎないか（作られてない/止まってる検知）
+newest_any_age="$(( now - $(mtime_epoch "$newest_any") ))"
 if [ "$newest_any_age" -gt "$STALE_SEC" ]; then
-  set_state "fail"
-  emit_fail "backup FAILED: stale latest=$(basename "$newest_any") age=$(human_age "$newest_any_age") > $(human_age "$STALE_SEC") dir=${BACKUP_DIR}"
-  exit 1
+  echo "fail|backup|stale latest=$(basename "$newest_any") age=$(human_age "$newest_any_age") > $(human_age "$STALE_SEC") dir=${BACKUP_DIR}"
+  exit 0
 fi
 
-# 2) レース回避：新しすぎる世代をスキップして、整合性チェックできる世代を探す
+# レース回避：sha256が存在し、かつMIN_AGE_SEC以上古いものを選ぶ
 eligible=""
 eligible_age=""
 for f in $(ls -1t "${BACKUP_DIR}"/devops-proxy-*.tar.gz 2>/dev/null); do
-  mtime="$(file_mtime_epoch "$f")"
-  age="$((now - mtime))"
-
-  # sha ファイル必須
-  if [ ! -f "${f}.sha256" ]; then
-    # shaが無いのは生成途中 or 事故の可能性。新しい順で当たるので、古い世代に進む。
-    continue
-  fi
-
-  # 生成直後はチェックしない（レース回避）
-  if [ "$age" -lt "$MIN_AGE_SEC" ]; then
-    continue
-  fi
-
+  [ -f "${f}.sha256" ] || continue
+  age="$(( now - $(mtime_epoch "$f") ))"
+  [ "$age" -ge "$MIN_AGE_SEC" ] || continue
   eligible="$f"
   eligible_age="$age"
   break
 done
 
 if [ -z "$eligible" ]; then
-  # 新しすぎる/sha無しで対象が見つからない
-  set_state "fail"
-  emit_fail "backup FAILED: no_eligible_backup (min_age=$(human_age "$MIN_AGE_SEC")) dir=${BACKUP_DIR}"
-  exit 1
+  echo "fail|backup|no_eligible_backup min_age=$(human_age "$MIN_AGE_SEC") dir=${BACKUP_DIR}"
+  exit 0
 fi
 
-# 3) sha256 整合性チェック
+# sha256 検証
 if ! sha256sum -c "${eligible}.sha256" >/dev/null 2>&1; then
-  set_state "fail"
-  emit_fail "backup FAILED: sha256_mismatch file=$(basename "$eligible")"
-  exit 1
+  echo "fail|backup|sha256_mismatch file=$(basename "$eligible")"
+  exit 0
 fi
 
-# 4) OK：状態は ok にする（通知は “日次サマリ” のみ）
-set_state "ok"
+# サイズ表示（numfmtが無ければbytesのまま）
+size_bytes="$(stat -c %s "$eligible" 2>/dev/null || echo "")"
+size_h="$( [ -n "$size_bytes" ] && numfmt --to=iec --suffix=B "$size_bytes" 2>/dev/null || true )"
+size="${size_h:-${size_bytes:-unknown}}"
 
+# 日次サマリ判定（UTCで1日1回）
 if [ "$DAILY_SUMMARY" = "1" ]; then
   today="$(date -u +%F)"
   last="$(cat "$DAILY_FILE" 2>/dev/null || true)"
   if [ "$today" != "$last" ]; then
-    # サイズ情報（人間向け）
-    size_bytes="$(stat -c %s "$eligible" 2>/dev/null || echo "")"
-    size_h="$( [ -n "$size_bytes" ] && numfmt --to=iec --suffix=B "$size_bytes" 2>/dev/null || echo "" )"
-
     echo "$today" > "$DAILY_FILE"
-    emit_ok_daily "backup daily: latest=$(basename "$eligible") age=$(human_age "$eligible_age") size=${size_h:-${size_bytes:-unknown}} dir=${BACKUP_DIR}"
+    echo "ok|backup_daily|latest=$(basename "$eligible") age=$(human_age "$eligible_age") size=${size} dir=${BACKUP_DIR}"
+    exit 0
   fi
 fi
 
+# 通常OK（状態遷移用）
+echo "ok|backup|latest=$(basename "$eligible") age=$(human_age "$eligible_age") size=${size} dir=${BACKUP_DIR}"
 exit 0

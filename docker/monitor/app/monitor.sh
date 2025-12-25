@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ---- config ----
 BASE="${BASE:-http://devops-proxy}"
 STATE_DIR="${STATE_DIR:-/state}"
 INTERVAL="${INTERVAL:-60}"
@@ -22,18 +23,46 @@ source /app/lib/state.sh
 
 echo "[monitor] starting. BASE=${BASE} interval=${INTERVAL}s"
 
+tag_for_key() {
+  local key="$1"
+  case "$key" in
+    http) echo "[health]" ;;
+    disk) echo "[disk]" ;;
+    cert) echo "[cert]" ;;
+    backup|backup_daily) echo "[backup]" ;;
+    *) echo "[monitor]" ;;
+  esac
+}
+
+is_daily_key() {
+  [[ "$1" == *_daily ]]
+}
+
 run_check_and_notify() {
   local key="$1" status="$2" msg="$3"
-  local f prev
+  local f prev tag
   f="$(state_file_for "$STATE_DIR" "$key")"
   prev="$(get_state "$f")"
+  tag="$(tag_for_key "$key")"
 
   set_state "$f" "$status"
 
+  # daily系は「okでも毎回notify」(ただしcheck側が1日1回だけ返す前提)
+  if is_daily_key "$key"; then
+    if [ "$status" = "ok" ]; then
+      notify "${tag} ✅ ${key}: ${msg}"
+    else
+      # dailyでfailが出るのは想定外だけど一応
+      notify "${tag} 🚨 ${key} FAILED: ${msg}"
+    fi
+    return 0
+  fi
+
+  # 通常は状態遷移のみ通知
   if [ "$status" = "ok" ] && [ "$prev" = "fail" ]; then
-    notify "✅ ${key} recovered: ${msg}"
+    notify "${tag} ✅ ${key} recovered: ${msg}"
   elif [ "$status" = "fail" ] && [ "$prev" != "fail" ]; then
-    notify "🚨 ${key} FAILED: ${msg}"
+    notify "${tag} 🚨 ${key} FAILED: ${msg}"
   fi
 }
 
