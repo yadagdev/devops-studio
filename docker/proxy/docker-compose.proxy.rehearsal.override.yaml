@@ -1,0 +1,7 @@
+services:
+  # ※ base の docker-compose.proxy.yaml 側で service 名が devops-proxy 前提
+  devops-proxy:
+    container_name: devops-proxy-rehearsal
+    ports:
+      - "127.0.0.1:8081:80"
+      - "127.0.0.1:8443:443"
