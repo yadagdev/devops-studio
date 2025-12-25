@@ -28,7 +28,11 @@ systemctl status dnf-automatic.timer --no-pager 2>/dev/null | sed -n '1,120p' ||
 echo
 
 echo "== nginx/proxy sanity (local) =="
-# Hostヘッダ付きでlocalhost疎通（証明書/TLS経路は proxy 側が稼働していればOK）
-curl -fsS https://127.0.0.1/healthz -H 'Host: yadag-studio.duckdns.org' -I 2>/dev/null || true
-curl -fsS https://127.0.0.1/_internal/healthz -H 'Host: yadag-studio.duckdns.org' -I 2>/dev/null || true
+
+# NOTE:
+# 127.0.0.1 に対しては証明書検証が通らないので -k を付ける。
+# ここは「ローカルで proxy が動いているか」を見るだけの軽い自己点検。
+
+curl -kfsSI https://127.0.0.1/healthz -H 'Host: yadag-studio.duckdns.org' || true
+curl -kfsSI https://127.0.0.1/_internal/healthz -H 'Host: yadag-studio.duckdns.org' || true
 echo
