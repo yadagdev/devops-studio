@@ -4,7 +4,7 @@ set -euo pipefail
 BACKUP_DIR="${BACKUP_DIR:-/host/backups/devops-studio}"
 MIN_AGE_SEC="${BACKUP_MIN_AGE_SEC:-180}"          # 新しすぎるバックアップは検証しない
 STALE_SEC="${BACKUP_STALE_SEC:-172800}"           # 2日以上新しいバックアップが無いならfail
-DAILY_SUMMARY="${BACKUP_DAILY_SUMMARY:-1}"        # 1で日次サマリ有効
+DAILY_SUMMARY="${BACKUP_DAILY_SUMMARY:-0}"        # 1で日次サマリ有効（デフォルトOFF）
 
 STATE_DIR="${STATE_DIR:-/state}"
 mkdir -p "$STATE_DIR"
@@ -76,13 +76,13 @@ size_h="$( [ -n "$size_bytes" ] && numfmt --to=iec --suffix=B "$size_bytes" 2>/d
 size="${size_h:-${size_bytes:-unknown}}"
 
 # 日次サマリ（UTCで1日1回）
+# dailyを出しても必ず backup 行も出す
 if [ "$DAILY_SUMMARY" = "1" ]; then
   today="$(date -u +%F)"
   last="$(cat "$DAILY_FILE" 2>/dev/null || true)"
   if [ "$today" != "$last" ]; then
     echo "$today" > "$DAILY_FILE"
     echo "ok|backup_daily|latest=$(basename "$eligible") age=$(human_age "$eligible_age") size=${size} dir=${BACKUP_DIR}"
-    exit 0
   fi
 fi
 
