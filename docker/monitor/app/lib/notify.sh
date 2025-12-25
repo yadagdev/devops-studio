@@ -26,5 +26,5 @@ notify() {
   msg="$(json_escape "$msg")"
   curl -fsS -H 'Content-Type: application/json' \
     -d "{\"content\":\"${msg}\"}" \
-    "$url" >/dev/null || true
+    "$url" >/dev/null || echo "[monitor] notify failed: url=$(echo "$url" | sed 's#https://[^/]\+#https://***#')"
 }
