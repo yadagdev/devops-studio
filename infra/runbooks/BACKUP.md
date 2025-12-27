@@ -51,4 +51,4 @@ ls -lh /home/chronos/backups/devops-studio | tail -n 30
 
 ## 4) 復旧へ進む
 復旧は以下を参照：
-- [RUNBOOK.restore.md](RUNBOOK.restore.md)
+- [RESTORE](RESTORE.md)
