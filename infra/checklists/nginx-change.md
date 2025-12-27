@@ -27,13 +27,14 @@
 ## 2. Chronos反映（Chronos: AlmaLinux10.1）
 ### 2.1 pull
 ```
-cd /home/chronos/workspace/AIUtilizationProject/devops-studio
+cd devops-studio
 git pull --ff-only
 ```
 
 ### 2.2 nginx 構文チェック（必須）
 ```
-docker compose -f /home/chronos/workspace/AIUtilizationProject/devops-studio/docker/proxy/docker-compose.proxy.yaml exec -T devops-proxy nginx -t
+cd devops-studio/
+docker compose -f docker/proxy/docker-compose.proxy.yaml exec -T devops-proxy nginx -t
 ```
 
 期待結果:
@@ -79,3 +80,29 @@ test "$(curl -s -o /dev/null -w '%{http_code}' --resolve yadag-studio.duckdns.or
 - [ ] revertコミットを作成して push
 - [ ] Chronos で pull
 - [ ] nginx -t と --resolve curl を再実行
+
+### Windows（revertコミットを作る）
+1) 直前の変更コミットを revert（コミットIDは状況に応じて指定）
+```
+git log --oneline -n 10
+git revert <BAD_COMMIT_SHA>
+git push
+```
+
+※複数コミットを戻すなら範囲指定も可:
+```
+git revert <OLD_SHA>.. <NEW_SHA>
+git push
+```
+
+### Chronos（pullして検証）
+```
+cd devops-studio
+git pull --ff-only
+
+docker compose -f docker/proxy/docker-compose.proxy.yaml exec -T devops-proxy nginx -t
+
+curl -fsS --resolve yadag-studio.duckdns.org:443:127.0.0.1 https://yadag-studio.duckdns.org/healthz
+curl -fsS --resolve yadag-studio.duckdns.org:443:127.0.0.1 https://yadag-studio.duckdns.org/_internal/healthz
+curl -fsS --resolve yadag-studio.duckdns.org:443:127.0.0.1 https://yadag-studio.duckdns.org/_internal/upstream/delay-api
+```
