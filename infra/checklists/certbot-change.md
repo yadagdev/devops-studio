@@ -47,7 +47,7 @@ sudo certbot renew --dry-run
 
 ## 4. nginx 側の反映確認（必須）
 ```
-docker compose -f /home/chronos/workspace/AIUtilizationProject/devops-studio/docker/proxy/docker-compose.proxy.yaml exec -T devops-proxy nginx -t
+docker compose -f devops-studio/docker/proxy/docker-compose.proxy.yaml exec -T devops-proxy nginx -t
 ```
 
 ---
