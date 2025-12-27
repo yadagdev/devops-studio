@@ -1,0 +1,49 @@
+name: external-smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *" # daily 03:17 UTC (= JST 12:17) くらい
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    env:
+      TARGET_HOST: "YOUR_PUBLIC_DOMAIN_HERE"
+
+    steps:
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl netcat-openbsd
+
+      - name: HTTPS health checks
+        run: |
+          set -euo pipefail
+          curl -fsS "https://yadag-studio.duckdns.org/healthz" >/dev/null
+          curl -fsS "https://yadag-studio.duckdns.org/_internal/healthz" >/dev/null
+          curl -fsS "https://yadag-studio.duckdns.org/_internal/upstream/delay-api" >/dev/null
+
+      - name: deny_sensitive regression checks
+        run: |
+          set -euo pipefail
+          code_env="$(curl -s -o /dev/null -w '%{http_code}' "https://yadag-studio.duckdns.org/.env")"
+          code_git="$(curl -s -o /dev/null -w '%{http_code}' "https://yadag-studio.duckdns.org/.git/config")"
+          test "$code_env" = "404"
+          test "$code_git" = "404"
+
+      - name: HSTS header check (basic)
+        run: |
+          set -euo pipefail
+          curl -sSI "yadag-studio.duckdns.org/healthz" | tr -d '\r' | grep -i '^strict-transport-security:' >/dev/null
+
+      - name: SSH port must be CLOSED
+        run: |
+          set -euo pipefail
+          if nc -vz -w 3 "yadag-studio.duckdns.org" 22; then
+            echo "ERROR: port 22 seems OPEN from internet"
+            exit 1
+          fi
+          echo "OK: port 22 is not reachable"
