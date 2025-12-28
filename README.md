@@ -33,15 +33,15 @@ DevOps-Studio は、**自宅マルチマシン + GitHub + ローカルLLM** を�
 - [Architecture](infra/ARCHITECTURE.md)
 - [Project Charter](infra/PROJECT_CHARTER.md)
 
-運用Runbook（AlmaLinux運用の手順）
+### 運用Runbook（AlmaLinux運用の手順）
 - [MONITOR](infra/runbooks/MONITOR.md)
 - [BACKUP](infra/runbooks/BACKUP.md)
 - [RESTORE](infra/runbooks/RESTORE.md)
 - [SECURITY](infra/runbooks/SECURITY.md)
 
-Change Gates（変更種別ゲート / 提出前チェック）
+### Change Gates（変更種別ゲート / 提出前チェック）
 
-### Infra / Ops
+#### Infra / Ops
 - [Nginx（devops-proxy）](infra/checklists/nginx-change.md)
 - [firewalld](infra/checklists/firewalld-change.md)
 - [certbot / deploy-hook](infra/checklists/certbot-change.md)
@@ -50,11 +50,11 @@ Change Gates（変更種別ゲート / 提出前チェック）
 - [docker compose（全般）](infra/checklists/docker-compose-change.md)
 - [security headers / deny_sensitive](infra/checklists/security-headers-change.md)
 
-### Observability / CI
+#### Observability / CI
 - [internal monitor（docker/monitor）](infra/checklists/monitor-change.md)
 - [GitHub Actions / self-hosted runner](infra/checklists/github-actions-runner-change.md)
 
-### Domain
+#### Domain
 - [DNS / domain](infra/checklists/dns-domain-change.md)
 
 ---
