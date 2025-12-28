@@ -10,3 +10,12 @@ docker/monitor/monitor.env
 infra/llm/runs/
 infra/llm/logs/
 infra/llm/private/
+
+# --- Continue workspace folder (allowlist) ---
+.continue/**
+
+!.continue/rules/
+!.continue/rules/**
+
+!.continue/prompt/
+!.continue/prompt/**
