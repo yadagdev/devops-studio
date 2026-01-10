@@ -70,17 +70,36 @@ run_check_and_notify() {
 }
 
 check_http() {
-  local fail=0 failed_path=""
+  local fail=0
+  local detail=""
+  local p code total
+
   for p in "${CHECK_PATHS[@]}"; do
-    if ! curl -fsS "${BASE}${p}" >/dev/null; then
-      fail=1; failed_path="$p"; break
+    # 200以外は失敗扱い（301などもfail）
+    code="$(
+      curl -sS \
+        --connect-timeout 2 --max-time 5 \
+        -o /dev/null \
+        -w "%{http_code} %{time_total}" \
+        "${BASE}${p}" \
+      || echo "000 0"
+    )"
+
+    # "200 0.012" みたいな形式
+    total="$(echo "$code" | awk '{print $2}')"
+    code="$(echo "$code"  | awk '{print $1}')"
+
+    if [ "$code" != "200" ]; then
+      fail=1
+      detail="failed=${p} code=${code} total=${total} base=${BASE}"
+      break
     fi
   done
 
   if [ "$fail" -eq 0 ]; then
     run_check_and_notify "http" "ok" "base=${BASE} paths=${CHECK_PATHS[*]}"
   else
-    run_check_and_notify "http" "fail" "base=${BASE} failed=${failed_path}"
+    run_check_and_notify "http" "fail" "${detail}"
   fi
 }
 
