@@ -69,21 +69,21 @@ docker compose -f docker/proxy/docker-compose.proxy.yaml exec -T devops-proxy ng
 
 ### 3.2 HTTPSローカル疎通（SNIを合わせる）
 ```
-curl -fsS --resolve yadag-studio.duckdns.org:443:127.0.0.1 https://yadag-studio.duckdns.org/healthz
-curl -fsS --resolve yadag-studio.duckdns.org:443:127.0.0.1 https://yadag-studio.duckdns.org/_internal/he
+curl -fsS --resolve ops.yadag.fyi:443:127.0.0.1 https://ops.yadag.fyi/healthz
+curl -fsS --resolve ops.yadag.fyi:443:127.0.0.1 https://ops.yadag.fyi/_internal/he
 ```
 
 ### 3.3 deny_sensitive 回帰（404/410ではなく「外に見せない」が目的 → 404が望ましい）
 ```
-test "$(curl -s -o /dev/null -w '%{http_code}' --resolve yadag-studio.duckdns.org:443:127.0.0.1 https://yadag-studio.duckdns.org/.env)" = "404"
-test "$(curl -s -o /dev/null -w '%{http_code}' --resolve yadag-studio.duckdns.org:443:127.0.0.1 https://yadag-studio.duckdns.org/.git/config)" = "404"
-test "$(curl -s -o /dev/null -w '%{http_code}' --resolve yadag-studio.duckdns.org:443:127.0.0.1 https://yadag-studio.duckdns.org/.ssh/id_rsa)" = "404"
-test "$(curl -s -o /dev/null -w '%{http_code}' --resolve yadag-studio.duckdns.org:443:127.0.0.1 https://yadag-studio.duckdns.org/backup.tar.gz)" = "404"
+test "$(curl -s -o /dev/null -w '%{http_code}' --resolve ops.yadag.fyi:443:127.0.0.1 https://ops.yadag.fyi/.env)" = "404"
+test "$(curl -s -o /dev/null -w '%{http_code}' --resolve ops.yadag.fyi:443:127.0.0.1 https://ops.yadag.fyi/.git/config)" = "404"
+test "$(curl -s -o /dev/null -w '%{http_code}' --resolve ops.yadag.fyi:443:127.0.0.1 https://ops.yadag.fyi/.ssh/id_rsa)" = "404"
+test "$(curl -s -o /dev/null -w '%{http_code}' --resolve ops.yadag.fyi:443:127.0.0.1 https://ops.yadag.fyi/backup.tar.gz)" = "404"
 ```
 
 ### 3.4 Security headers 回帰（HSTS）
 ```
-curl -sSI --resolve yadag-studio.duckdns.org:443:127.0.0.1 https://yadag-studio.duckdns.org/healthz \
+curl -sSI --resolve ops.yadag.fyi:443:127.0.0.1 https://ops.yadag.fyi/healthz \
   | tr -d '\r' \
   | grep -i '^strict-transport-security:' >/dev/null
 ```
@@ -91,14 +91,14 @@ curl -sSI --resolve yadag-studio.duckdns.org:443:127.0.0.1 https://yadag-studio.
 ### 3.5 TLSざっくり確認（推奨）
 証明書CN/SANやハンドシェイクの雰囲気を見る（詳細解析は不要）
 ```
-echo | openssl s_client -connect 127.0.0.1:443 -servername yadag-studio.duckdns.org 2>/dev/null | head -n 30
+echo | openssl s_client -connect 127.0.0.1:443 -servername ops.yadag.fyi 2>/dev/null | head -n 30
 ```
 
 ### 3.6 rate limit の確認（推奨）
 短時間で複数叩いて 429 が混ざるならOK（健康系に限る）
 ```
 for i in $(seq 1 30); do
-  curl -s -o /dev/null -w '%{http_code}\n' --resolve yadag-studio.duckdns.org:443:127.0.0.1 https://yadag-studio.duckdns.org/_internal/healthz
+  curl -s -o /dev/null -w '%{http_code}\n' --resolve ops.yadag.fyi:443:127.0.0.1 https://ops.yadag.fyi/_internal/healthz
 done | sort | uniq -c
 ```
 
@@ -126,5 +126,5 @@ cd devops-studio/
 git pull --ff-only
 
 docker compose -f docker/proxy/docker-compose.proxy.yaml exec -T devops-proxy nginx -t
-curl -fsS --resolve yadag-studio.duckdns.org:443:127.0.0.1 https://yadag-studio.duckdns.org/healthz
+curl -fsS --resolve ops.yadag.fyi:443:127.0.0.1 https://ops.yadag.fyi/healthz
 ```

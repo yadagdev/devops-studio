@@ -8,7 +8,7 @@ DevOps-Studio は、**自宅マルチマシン + GitHub + ローカルLLM** を�
 
 ## 重要：現在の公開状態
 
-- 公開ドメイン: `yadag-studio.duckdns.org`（DuckDNS / DDNS）
+- 公開ドメイン: `ops.yadag.fyi`（Cloudflare / DDNS）
 - 公開ポート: `80/tcp`, `443/tcp`
 - 80/tcp: `/.well-known/acme-challenge/` 以外は **HTTPSへ301**
 - 443/tcp: **本体**（ルーティング / ルール / 内部エンドポイント / 運用保護）
@@ -24,7 +24,7 @@ DevOps-Studio は、**自宅マルチマシン + GitHub + ローカルLLM** を�
   - アプリ群は `devops-edge` に参加
   - Nginx から **service名で名前解決**して upstream する
 
-例: `delay-api`（別リポ）を `https://yadag-studio.duckdns.org/delay-api/` で公開
+例: `delay-api`（別リポ）を `https://ops.yadag.fyi/delay-api/` で公開
 
 ---
 
@@ -90,17 +90,17 @@ docker compose -f docker-compose.proxy.yaml ps
 ### ローカル（AlmaLinux）
 
 ```
-curl -fsS https://127.0.0.1/healthz -H 'Host: yadag-studio.duckdns.org' -I
-curl -fsS https://127.0.0.1/_internal/healthz -H 'Host: yadag-studio.duckdns.org' -I
-curl -fsS https://127.0.0.1/_internal/upstream/delay-api -H 'Host: yadag-studio.duckdns.org' -I
+curl -fsS https://127.0.0.1/healthz -H 'Host: ops.yadag.fyi' -I
+curl -fsS https://127.0.0.1/_internal/healthz -H 'Host: ops.yadag.fyi' -I
+curl -fsS https://127.0.0.1/_internal/upstream/delay-api -H 'Host: ops.yadag.fyi' -I
 ```
 
 ### 外部（LAN外 / インターネット経由）
 
 ```
-curl -fsS https://yadag-studio.duckdns.org/healthz -I
-curl -fsS https://yadag-studio.duckdns.org/_internal/healthz -I
-curl -fsS https://yadag-studio.duckdns.org/_internal/upstream/delay-api -I
+curl -fsS https://ops.yadag.fyi/healthz -I
+curl -fsS https://ops.yadag.fyi/_internal/healthz -I
+curl -fsS https://ops.yadag.fyi/_internal/upstream/delay-api -I
 ```
 
 ---
@@ -150,7 +150,7 @@ networks:
   ```
 
 ## TLS（Let’s Encrypt / Certbot）
-- ホスト側: `/etc/letsencrypt/live/yadag-studio.duckdns.org/`
+- ホスト側: `/etc/letsencrypt/live/ops.yadag.fyi/`
 - proxy コンテナへ `/etc/letsencrypt` を read-only マウントして利用
 - certbot renew は systemd timer で定期実行
 - renew後に deploy-hook で nginx reload

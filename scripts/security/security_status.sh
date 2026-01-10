@@ -33,6 +33,6 @@ echo "== nginx/proxy sanity (local) =="
 # 127.0.0.1 に対しては証明書検証が通らないので -k を付ける。
 # ここは「ローカルで proxy が動いているか」を見るだけの軽い自己点検。
 
-curl -kfsSI https://127.0.0.1/healthz -H 'Host: yadag-studio.duckdns.org' || true
-curl -kfsSI https://127.0.0.1/_internal/healthz -H 'Host: yadag-studio.duckdns.org' || true
+curl -kfsSI https://127.0.0.1/healthz -H 'Host: ops.yadag.fyi' || true
+curl -kfsSI https://127.0.0.1/_internal/healthz -H 'Host: ops.yadag.fyi' || true
 echo
