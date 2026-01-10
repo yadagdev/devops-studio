@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ---- config ----
-BASE="${BASE:-http://devops-proxy}"
+BASE="${BASE:-http://devops-proxy:18080}"
 STATE_DIR="${STATE_DIR:-/state}"
 INTERVAL="${INTERVAL:-60}"
 
