@@ -63,9 +63,9 @@ docker compose \
   exec -T devops-proxy nginx -t
 
 # HTTP確認（Hostヘッダ必須）
-curl -fsS http://127.0.0.1:8081/healthz -H 'Host: yadag-studio.duckdns.org'
-curl -fsS http://127.0.0.1:8081/_internal/healthz -H 'Host: yadag-studio.duckdns.org'
-curl -fsS http://127.0.0.1:8081/_internal/upstream/delay-api -H 'Host: yadag-studio.duckdns.org'
+curl -fsS http://127.0.0.1:8081/healthz -H 'Host: ops.yadag.fyi'
+curl -fsS http://127.0.0.1:8081/_internal/healthz -H 'Host: ops.yadag.fyi'
+curl -fsS http://127.0.0.1:8081/_internal/upstream/delay-api -H 'Host: ops.yadag.fyi'
 
 # 検証を終えたら停止
 docker compose \
@@ -83,7 +83,7 @@ docker compose -f docker-compose.proxy.yaml exec -T devops-proxy nginx -t
 
 ## 8) 事後確認（サーバー完結）
 ```
-curl -fsS https://127.0.0.1/healthz -H 'Host: yadag-studio.duckdns.org' -I
-curl -fsS https://127.0.0.1/_internal/healthz -H 'Host: yadag-studio.duckdns.org' -I
-curl -fsS https://127.0.0.1/_internal/upstream/delay-api -H 'Host: yadag-studio.duckdns.org' -I
+curl -fsS https://127.0.0.1/healthz -H 'Host: ops.yadag.fyi' -I
+curl -fsS https://127.0.0.1/_internal/healthz -H 'Host: ops.yadag.fyi' -I
+curl -fsS https://127.0.0.1/_internal/upstream/delay-api -H 'Host: ops.yadag.fyi' -I
 ```

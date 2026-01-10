@@ -76,15 +76,15 @@ cd devops-studio
 docker compose -f docker/proxy/docker-compose.proxy.yaml exec -T devops-proxy nginx -t
 
 # ローカル疎通（SNIを合わせる）
-curl -fsS --resolve yadag-studio.duckdns.org:443:127.0.0.1 https://yadag-studio.duckdns.org/healthz
-curl -fsS --resolve yadag-studio.duckdns.org:443:127.0.0.1 https://yadag-studio.duckdns.org/_internal/healthz
-curl -fsS --resolve yadag-studio.duckdns.org:443:127.0.0.1 https://yadag-studio.duckdns.org/_internal/upstream/delay-api
+curl -fsS --resolve ops.yadag.fyi:443:127.0.0.1 https://ops.yadag.fyi/healthz
+curl -fsS --resolve ops.yadag.fyi:443:127.0.0.1 https://ops.yadag.fyi/_internal/healthz
+curl -fsS --resolve ops.yadag.fyi:443:127.0.0.1 https://ops.yadag.fyi/_internal/upstream/delay-api
 ```
 
 deny_sensitive（404回帰）:
 ```
-test "$(curl -s -o /dev/null -w '%{http_code}' --resolve yadag-studio.duckdns.org:443:127.0.0.1 https://yadag-studio.duckdns.org/.env)" = "404"
-test "$(curl -s -o /dev/null -w '%{http_code}' --resolve yadag-studio.duckdns.org:443:127.0.0.1 https://yadag-studio.duckdns.org/.git/config)" = "404"
+test "$(curl -s -o /dev/null -w '%{http_code}' --resolve ops.yadag.fyi:443:127.0.0.1 https://ops.yadag.fyi/.env)" = "404"
+test "$(curl -s -o /dev/null -w '%{http_code}' --resolve ops.yadag.fyi:443:127.0.0.1 https://ops.yadag.fyi/.git/config)" = "404"
 ```
 
 ### 5-B) monitor（devops-monitor）を含む場合

@@ -45,11 +45,11 @@ sudo journalctl -u dnf-automatic --since "14 days ago" --no-pager | tail -n 200
 
 ## 6) 最低限の自己点検（サーバー完結）
 ```
-curl -fsS https://127.0.0.1/healthz -H 'Host: yadag-studio.duckdns.org' -I
-curl -fsS https://127.0.0.1/_internal/healthz -H 'Host: yadag-studio.duckdns.org' -I
+curl -fsS https://127.0.0.1/healthz -H 'Host: ops.yadag.fyi' -I
+curl -fsS https://127.0.0.1/_internal/healthz -H 'Host: ops.yadag.fyi' -I
 
 # TLS (1.2 OK / 1.1 NG など)
-openssl s_client -connect 127.0.0.1:443 -servername yadag-studio.duckdns.org -tls1_2 </dev/null 2>/dev/null | head -n 30 || true
+openssl s_client -connect 127.0.0.1:443 -servername ops.yadag.fyi -tls1_2 </dev/null 2>/dev/null | head -n 30 || true
 ```
 
 ## 7) 変更時チェックリスト（事故防止）

@@ -54,7 +54,7 @@ docker compose -f devops-studio/docker/proxy/docker-compose.proxy.yaml exec -T d
 
 ## 5. 更新後検証（証明書期限）
 ```
-sudo openssl x509 -in /etc/letsencrypt/live/yadag-studio.duckdns.org/fullchain.pem -noout -dates
+sudo openssl x509 -in /etc/letsencrypt/live/ops.yadag.fyi/fullchain.pem -noout -dates
 ```
 
 ---

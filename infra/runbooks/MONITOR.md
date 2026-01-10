@@ -34,9 +34,9 @@ docker compose -f docker-compose.monitor.yaml exec -T devops-monitor \
 
 ## サーバー完結の外部スキャン代替
 ```
-curl -fsS https://127.0.0.1/healthz -H 'Host: yadag-studio.duckdns.org' -I
-curl -fsS https://127.0.0.1/_internal/healthz -H 'Host: yadag-studio.duckdns.org' -I
-curl -fsS https://127.0.0.1/_internal/upstream/delay-api -H 'Host: yadag-studio.duckdns.org' -I
+curl -fsS https://127.0.0.1/healthz -H 'Host: ops.yadag.fyi' -I
+curl -fsS https://127.0.0.1/_internal/healthz -H 'Host: ops.yadag.fyi' -I
+curl -fsS https://127.0.0.1/_internal/upstream/delay-api -H 'Host: ops.yadag.fyi' -I
 
 sudo firewall-cmd --zone=public --list-all
 sudo fail2ban-client status sshd
