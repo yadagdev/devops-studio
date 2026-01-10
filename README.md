@@ -8,7 +8,7 @@ DevOps-Studio は、**自宅マルチマシン + GitHub + ローカルLLM** を�
 
 ## 重要：現在の公開状態
 
-- 公開ドメイン: `ops.yadag.fyi`（DuckDNS / DDNS）
+- 公開ドメイン: `ops.yadag.fyi`（Cloudflare / DDNS）
 - 公開ポート: `80/tcp`, `443/tcp`
 - 80/tcp: `/.well-known/acme-challenge/` 以外は **HTTPSへ301**
 - 443/tcp: **本体**（ルーティング / ルール / 内部エンドポイント / 運用保護）
