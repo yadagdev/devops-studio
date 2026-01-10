@@ -6,7 +6,7 @@ services:
     env_file:
       - ./monitor.env
     environment:
-      BASE: "http://devops-proxy"
+      BASE: "http://devops-proxy:18080"
       STATE_DIR: "/state"
       HOST_ROOT: "/host"
       BACKUP_DIR: "/backups"
