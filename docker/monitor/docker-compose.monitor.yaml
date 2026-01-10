@@ -6,7 +6,7 @@ services:
     env_file:
       - ./monitor.env
     environment:
-      BASE: "https://yadag-studio.duckdns.org"
+      BASE: "http://devops-proxy"
       STATE_DIR: "/state"
       HOST_ROOT: "/host"
       BACKUP_DIR: "/backups"
