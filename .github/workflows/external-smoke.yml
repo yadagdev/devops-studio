@@ -11,7 +11,7 @@ jobs:
     timeout-minutes: 5
 
     env:
-      TARGET_HOST: yadag-studio.duckdns.org
+      TARGET_HOST: ops.yadag.fyi
 
     steps:
       - name: Install tools
