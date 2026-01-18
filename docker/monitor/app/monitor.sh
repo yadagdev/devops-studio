@@ -9,6 +9,7 @@ INTERVAL="${INTERVAL:-60}"
 CHECK_PATHS=(
   "/_internal/healthz"
   "/_internal/upstream/delay-api"
+  "/_internal/upstream/yadag-wiki"
 )
 
 DISK_EVERY="${DISK_CHECK_EVERY_SEC:-300}"
