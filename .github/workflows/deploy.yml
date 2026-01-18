@@ -14,15 +14,8 @@ jobs:
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 30
 
-    env:
-      APP_DIR: /home/chronos/workspace/apps/devops-studio
-      STATE_DIR: /home/chronos/workspace/_state/devops-studio
-      SUCCESS_FILE: /home/chronos/workspace/_state/devops-studio/last_success_sha
-      PROJECT: devops-studio-proxy
-      COMPOSE_FILE: docker/proxy/docker-compose.proxy.yaml
-
     steps:
-      - name: Checkout devops-studio
+      - name: Checkout (runner workspace)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -32,38 +25,48 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          STATE_DIR="/home/chronos/workspace/_state/devops-studio"
+          SUCCESS_FILE="${STATE_DIR}/last_success_sha"
           mkdir -p "${STATE_DIR}"
           if [ -f "${SUCCESS_FILE}" ]; then
             echo "PREV_SUCCESS_SHA=$(cat "${SUCCESS_FILE}")" >> "$GITHUB_ENV"
             echo "Loaded PREV_SUCCESS_SHA=$(cat "${SUCCESS_FILE}")"
           else
             echo "PREV_SUCCESS_SHA=" >> "$GITHUB_ENV"
-            echo "No previous successful SHA."
+            echo "No previous successful SHA"
           fi
 
-      - name: Sync repo to app dir (preserve local .git)
+      - name: Sync repo to deploy dir (apps/devops-studio)
         shell: bash
         run: |
           set -euo pipefail
+          APP_DIR="/home/chronos/workspace/apps/devops-studio"
           mkdir -p "${APP_DIR}"
+          rsync -a --delete repo/ "${APP_DIR}/"
+          echo "Synced to ${APP_DIR}"
 
-          # IMPORTANT:
-          # - Do NOT overwrite ${APP_DIR}/.git (keeps origin=ssh and local settings)
-          # - Exclude runner artifacts and local state if they exist
-          rsync -a --delete \
-            --exclude '.git' \
-            --exclude 'actions-runner/' \
-            --exclude 'docker/monitor/app/monitor.env.save' \
-            repo/ "${APP_DIR}/"
-
-      - name: Deploy proxy + nginx reload (from apps dir)
+      - name: Optional sync to work dir (src/devops-studio)
         shell: bash
         run: |
           set -euo pipefail
-          cd "${APP_DIR}"
+          SRC_DIR="/home/chronos/workspace/src/devops-studio"
+          if [ -d "${SRC_DIR}" ]; then
+            # NOTE: src は作業用。git 管理は残したいので .git は触らない。
+            rsync -a --delete --exclude='.git/' repo/ "${SRC_DIR}/"
+            echo "Synced to ${SRC_DIR} (excluding .git/)"
+          else
+            echo "Skip: ${SRC_DIR} does not exist"
+          fi
+
+      - name: Deploy proxy (apps dir)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /home/chronos/workspace/apps/devops-studio/docker/proxy
+          PROJECT="devops-studio-proxy"
+          COMPOSE_FILE="docker-compose.proxy.yaml"
 
           docker compose -p "${PROJECT}" -f "${COMPOSE_FILE}" up -d
-
           docker compose -p "${PROJECT}" -f "${COMPOSE_FILE}" exec -T devops-proxy nginx -t
           docker compose -p "${PROJECT}" -f "${COMPOSE_FILE}" exec -T devops-proxy nginx -s reload
 
@@ -73,14 +76,14 @@ jobs:
           set -euo pipefail
           base="http://localhost:80"
 
-          CHECKS=(
+          CHECK_PATHS=(
             "/healthz"
             "/delay-api/healthz"
           )
 
           for i in {1..30}; do
             ok=1
-            for p in "${CHECKS[@]}"; do
+            for p in "${CHECK_PATHS[@]}"; do
               if ! curl -fsS "${base}${p}" >/dev/null; then
                 ok=0
                 break
@@ -97,8 +100,8 @@ jobs:
           done
 
           echo "Healthcheck FAILED"
-          docker compose -p "${PROJECT}" -f "${APP_DIR}/${COMPOSE_FILE}" ps || true
-          docker compose -p "${PROJECT}" -f "${APP_DIR}/${COMPOSE_FILE}" logs --tail=200 devops-proxy || true
+          docker compose -p devops-studio-proxy -f /home/chronos/workspace/apps/devops-studio/docker/proxy/docker-compose.proxy.yaml ps || true
+          docker compose -p devops-studio-proxy -f /home/chronos/workspace/apps/devops-studio/docker/proxy/docker-compose.proxy.yaml logs --tail=200 devops-proxy || true
           exit 1
 
       - name: Save successful commit SHA
@@ -106,7 +109,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "${STATE_DIR}"
+          STATE_DIR="/home/chronos/workspace/_state/devops-studio"
+          SUCCESS_FILE="${STATE_DIR}/last_success_sha"
           echo "${GITHUB_SHA}" > "${SUCCESS_FILE}"
           echo "Saved successful SHA: ${GITHUB_SHA}"
 
@@ -115,7 +119,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           if [ -z "${PREV_SUCCESS_SHA}" ]; then
             echo "No PREV_SUCCESS_SHA available. Cannot rollback."
             exit 1
@@ -123,37 +126,41 @@ jobs:
 
           echo "Rolling back to ${PREV_SUCCESS_SHA}"
 
-          # Checkout the last good commit in the repo workspace
+          # checkout repo workspace to last success sha
           cd repo
           git checkout --force "${PREV_SUCCESS_SHA}"
 
-          # Sync to apps dir WITHOUT overwriting .git
-          mkdir -p "${APP_DIR}"
-          rsync -a --delete \
-            --exclude '.git' \
-            --exclude 'actions-runner/' \
-            --exclude 'docker/monitor/app/monitor.env.save' \
-            ./ "${APP_DIR}/"
+          # re-sync to apps (deploy dir)
+          APP_DIR="/home/chronos/workspace/apps/devops-studio"
+          rsync -a --delete ../repo/ "${APP_DIR}/"
 
-          # Redeploy from apps dir
-          cd "${APP_DIR}"
+          # (optional) re-sync to src (work dir) excluding .git
+          SRC_DIR="/home/chronos/workspace/src/devops-studio"
+          if [ -d "${SRC_DIR}" ]; then
+            rsync -a --delete --exclude='.git/' ../repo/ "${SRC_DIR}/" || true
+          fi
+
+          # redeploy proxy
+          cd /home/chronos/workspace/apps/devops-studio/docker/proxy
+          PROJECT="devops-studio-proxy"
+          COMPOSE_FILE="docker-compose.proxy.yaml"
+
           docker compose -p "${PROJECT}" -f "${COMPOSE_FILE}" up -d
           docker compose -p "${PROJECT}" -f "${COMPOSE_FILE}" exec -T devops-proxy nginx -t
           docker compose -p "${PROJECT}" -f "${COMPOSE_FILE}" exec -T devops-proxy nginx -s reload
-          echo "Success!"
 
-          # Basic rollback check
+          # rollback healthcheck
           base="http://localhost:80"
           for i in {1..30}; do
             if curl -fsS "${base}/healthz" >/dev/null && curl -fsS "${base}/delay-api/healthz" >/dev/null; then
               echo "Rollback healthcheck OK"
               exit 0
             fi
-            echo "Rollback retry ${i}/30 ..."
+            echo "Rollback healthcheck retry ${i}/30 ..."
             sleep 2
           done
 
           echo "Rollback FAILED"
-          docker compose -p "${PROJECT}" -f "${APP_DIR}/${COMPOSE_FILE}" ps || true
-          docker compose -p "${PROJECT}" -f "${APP_DIR}/${COMPOSE_FILE}" logs --tail=200 devops-proxy || true
+          docker compose -p "${PROJECT}" -f "${COMPOSE_FILE}" ps || true
+          docker compose -p "${PROJECT}" -f "${COMPOSE_FILE}" logs --tail=200 devops-proxy || true
           exit 1
