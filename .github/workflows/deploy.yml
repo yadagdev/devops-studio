@@ -45,18 +45,18 @@ jobs:
           rsync -a --delete repo/ "${APP_DIR}/"
           echo "Synced to ${APP_DIR}"
 
-      - name: Optional sync to work dir (src/devops-studio)
-        shell: bash
-        run: |
-          set -euo pipefail
-          SRC_DIR="/home/chronos/workspace/src/devops-studio"
-          if [ -d "${SRC_DIR}" ]; then
-            # NOTE: src は作業用。git 管理は残したいので .git は触らない。
-            rsync -a --delete --exclude='.git/' repo/ "${SRC_DIR}/"
-            echo "Synced to ${SRC_DIR} (excluding .git/)"
-          else
-            echo "Skip: ${SRC_DIR} does not exist"
-          fi
+      # - name: Optional sync to work dir (src/devops-studio)
+      #   shell: bash
+      #   run: |
+      #     set -euo pipefail
+      #     SRC_DIR="/home/chronos/workspace/src/devops-studio"
+      #     if [ -d "${SRC_DIR}" ]; then
+      #       # NOTE: src は作業用。git 管理は残したいので .git は触らない。
+      #       rsync -a --delete --exclude='.git/' repo/ "${SRC_DIR}/"
+      #       echo "Synced to ${SRC_DIR} (excluding .git/)"
+      #     else
+      #       echo "Skip: ${SRC_DIR} does not exist"
+      #     fi
 
       - name: Deploy proxy (apps dir)
         shell: bash
@@ -69,7 +69,6 @@ jobs:
           docker compose -p "${PROJECT}" -f "${COMPOSE_FILE}" up -d
           docker compose -p "${PROJECT}" -f "${COMPOSE_FILE}" exec -T devops-proxy nginx -t
           docker compose -p "${PROJECT}" -f "${COMPOSE_FILE}" exec -T devops-proxy nginx -s reload
-          echo "deploy test"
 
       - name: Healthcheck (proxy + delay-api)
         shell: bash
