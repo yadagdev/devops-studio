@@ -1,17 +1,24 @@
 name: Deploy to Chronos
 on:
-  workflow_dispatch: # 手動デプロイ用
+  workflow_dispatch:
   push:
-    branches:
-      - main # main にpushされたら自動デプロイ
+    branches: [main]
+
+concurrency:
+  group: deploy-devops-studio
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 30
+
     steps:
       - name: Checkout devops-studio
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          path: repo
 
       - name: Load last successful commit SHA
         shell: bash
@@ -20,71 +27,45 @@ jobs:
           STATE_DIR="/home/chronos/workspace/_state/devops-studio"
           SUCCESS_FILE="${STATE_DIR}/last_success_sha"
           mkdir -p "${STATE_DIR}"
-
           if [ -f "${SUCCESS_FILE}" ]; then
             echo "PREV_SUCCESS_SHA=$(cat "${SUCCESS_FILE}")" >> "$GITHUB_ENV"
-            echo "Loaded previous successful SHA: $(cat "${SUCCESS_FILE}")"
           else
             echo "PREV_SUCCESS_SHA=" >> "$GITHUB_ENV"
-            echo "No previous successful SHA file yet."
           fi
 
-      - name: Show runner info
-        run: |
-          echo "Runner hostname:"
-          hostname
-          echo "Current directory:"
-          pwd
-
-      - name: Deploy proxy
-        run: |
-          cd docker/proxy
-          docker compose -f docker-compose.proxy.yaml up -d
-
-      - name: Apply nginx config (test + reload)
+      - name: Sync repo to app dir (fixed)
         shell: bash
         run: |
           set -euo pipefail
-          cd docker/proxy
-          docker compose -f docker-compose.proxy.yaml exec -T devops-proxy nginx -t
-          docker compose -f docker-compose.proxy.yaml exec -T devops-proxy nginx -s reload
+          APP_DIR="/home/chronos/workspace/apps/devops-studio"
+          mkdir -p "${APP_DIR}"
+          rsync -a --delete repo/ "${APP_DIR}/"
+
+      - name: Deploy proxy (fixed dir)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /home/chronos/workspace/apps/devops-studio/docker/proxy
+          docker compose -p devops-studio-proxy -f docker-compose.proxy.yaml up -d
+          docker compose -p devops-studio-proxy -f docker-compose.proxy.yaml exec -T devops-proxy nginx -t
+          docker compose -p devops-studio-proxy -f docker-compose.proxy.yaml exec -T devops-proxy nginx -s reload
+
       - name: Healthcheck (proxy + delay-api)
         shell: bash
         run: |
           set -euo pipefail
           base="http://localhost:80"
-          CHECK_PATHS=(
-            "/healthz"
-            "/delay-api/healthz"
-          )
-
-          echo "Healthcheck targets:"
-          printf ' - %s\n' "${CHECK_PATHS[@]}"
-
           for i in {1..30}; do
-            ok=1
-            for p in "${CHECK_PATHS[@]}"; do
-              if ! curl -fsS "${base}${p}" >/dev/null; then
-                ok=0
-                break
-              fi
-            done
-
-            if [ "$ok" -eq 1 ]; then
+            if curl -fsS "${base}/healthz" >/dev/null && curl -fsS "${base}/delay-api/healthz" >/dev/null; then
               echo "Healthcheck OK"
               exit 0
             fi
-
-            echo "Healthcheck retry ${i}/30 ..."
             sleep 2
           done
+
           echo "Healthcheck FAILED"
-          echo "--- docker compose ps ---"
-          docker compose -f docker/proxy/docker-compose.proxy.yaml ps || true
-          echo "--- docker compose logs (proxy) ---"
-          docker compose -f docker/proxy/docker-compose.proxy.yaml logs --tail=200 devops-proxy || true
-          echo "--- docker compose logs (delay-api) ---"
-          docker compose -f /home/chronos/workspace/apps/delay-api/docker-compose.yaml logs --tail=200 delay-api || true
+          docker compose -p devops-studio-proxy -f /home/chronos/workspace/apps/devops-studio/docker/proxy/docker-compose.proxy.yaml ps || true
+          docker compose -p devops-studio-proxy -f /home/chronos/workspace/apps/devops-studio/docker/proxy/docker-compose.proxy.yaml logs --tail=200 devops-proxy || true
           exit 1
 
       - name: Save successful commit SHA
@@ -95,7 +76,6 @@ jobs:
           STATE_DIR="/home/chronos/workspace/_state/devops-studio"
           SUCCESS_FILE="${STATE_DIR}/last_success_sha"
           echo "${GITHUB_SHA}" > "${SUCCESS_FILE}"
-          echo "Saved successful SHA: ${GITHUB_SHA}"
 
       - name: Rollback to last successful commit
         if: failure()
@@ -108,23 +88,13 @@ jobs:
           fi
 
           echo "Rolling back to ${PREV_SUCCESS_SHA}"
-          git fetch --all --prune
+          cd repo
           git checkout --force "${PREV_SUCCESS_SHA}"
 
-          cd docker/proxy
-          docker compose -f docker-compose.proxy.yaml up -d
+          APP_DIR="/home/chronos/workspace/apps/devops-studio"
+          rsync -a --delete ../repo/ "${APP_DIR}/"
 
-          base="http://localhost:80"
-          for i in {1..30}; do
-            if curl -fsS "${base}/healthz" >/dev/null && curl -fsS "${base}/delay-api/healthz" >/dev/null; then
-              echo "Rollback healthcheck OK"
-              exit 0
-            fi
-            echo "Rollback healthcheck retry ${i}/30 ..."
-            sleep 2
-          done
-
-          echo "Rollback FAILED"
-          docker compose -f docker-compose.proxy.yaml ps || true
-          docker compose -f docker-compose.proxy.yaml logs --tail=200 devops-proxy || true
-          exit 1
+          cd /home/chronos/workspace/apps/devops-studio/docker/proxy
+          docker compose -p devops-studio-proxy -f docker-compose.proxy.yaml up -d
+          docker compose -p devops-studio-proxy -f docker-compose.proxy.yaml exec -T devops-proxy nginx -t
+          docker compose -p devops-studio-proxy -f docker-compose.proxy.yaml exec -T devops-proxy nginx -s reload
