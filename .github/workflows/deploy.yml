@@ -69,6 +69,7 @@ jobs:
           docker compose -p "${PROJECT}" -f "${COMPOSE_FILE}" up -d
           docker compose -p "${PROJECT}" -f "${COMPOSE_FILE}" exec -T devops-proxy nginx -t
           docker compose -p "${PROJECT}" -f "${COMPOSE_FILE}" exec -T devops-proxy nginx -s reload
+          echo "test"
 
       - name: Healthcheck (proxy + delay-api)
         shell: bash
